@@ -1,0 +1,19 @@
+# Gradle 构建产物
+.gradle/
+.kotlin/
+build/
+app/build/
+
+# IDE
+.idea/
+*.iml
+
+# 本地配置（机器相关路径，勿入库）
+local.properties
+
+# 本地发布归档（APK 不入库，走 GitHub Releases）
+发布/
+
+# 日志与临时文件
+*.log
+*.tmp
