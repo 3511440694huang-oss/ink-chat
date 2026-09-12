@@ -1,7 +1,8 @@
 # ink-chat（静墨）— DeepSeek 墨水屏客户端
 
-> 依据 [`docs/软件框架.md`](docs/软件框架.md) v2.0｜**当前：M4 完成**（设置与账户：余额 / 模型列表 / 显示三档）
+> 依据 [`docs/软件框架.md`](docs/软件框架.md) v2.0｜**当前：M5.6 完成**（用量统计：缓存命中率 / 花费估算 · LaTeX 渲染修复）
 > 墨屏真机：MiDuoKanReaderPro / Android 8.1（SDK27）/ armeabi-v7a —— 构建 / 安装 / 运行链路已验证
+> 代码仓库：[`3511440694huang-oss/ink-chat`](https://github.com/3511440694huang-oss/ink-chat)（Releases 页提供 APK 下载）
 
 ## 快速开始（在本机 Ubuntu 终端构建）
 
@@ -64,6 +65,7 @@ app/src/main/java/com/ink/chat/
 - [x] M3 会话管理（列表 / 搜索 / 总结 / 导入导出）—— ✅ 2026-09-12 真机复测通过
 - [x] M4 设置与账户（余额 / 模型列表 / 显示三档）—— ✅ 2026-09-12 装机冒烟
 - [ ] M5 增强（联网搜索 / 图片输入）
+  - [x] M5.6 用量统计（缓存命中率 / 花费估算）· LaTeX 渲染修复 —— ✅ 2026-09-13 真机验证（v0.7.1 已发布）
 - [ ] M6 打磨与发布
 
 ## 构建记录
@@ -143,6 +145,15 @@ app/src/main/java/com/ink/chat/
 
 **本轮踩坑**：① 余额文案改派生流后，`SettingsViewModel.refreshBalance()` 残留引用已删字段 `_balanceText` → 删除该方法（职责移入 `BalanceViewModel`）；② 整文件重写须先 `delete_file` 再 `create_file`（工具约束，记住流程）；③ 墨水屏 `screencap` 不保证实时（可能抓到过渡帧）→ UI 验证以 `uiautomator dump` 语义树为准，像素级验证用 PIL 临时脚本分析。
 
+### 2026-09-13 · M5.6 用量统计与 LaTeX 渲染修复（真机验证 + GitHub 发布）
+| 项 | 结果 |
+|---|---|
+| 范围 | 输入区布局（token 显示独立成行，不再被「图片 / 文件 / 短语」挤压）· 用量行（↑输入 / ↓输出 · 缓存命中率 · 花费估算，点击展开明细）· `Pricing` 峰谷价（北京时间工作日 9–12 / 14–18；命中 / 未命中 / 输出三价）· Room v2→v3（usage 表新增缓存两列，非破坏迁移保数据）· LaTeX：`\(\)` / `\[\]`、cases / aligned / matrix 环境、`\binom` 等组合标记、货币误判修复 |
+| 数据口径 | API 多候选键容错解析（`prompt_cache_hit/miss_tokens` 等）；旧记录无缓存列 → 整额按未命中保守估算；无缓存数据时命中率显示「—」而非误报 0% |
+| 构建 | debug 18.9MB / release 12.6MB；单元测试 7/7（dollarInline / currencyNotMath / parenInline / bracketBlock / casesUnicode / matrixParse / fracInline）；清 kapt 缓存后 release 一次通过 |
+| 装机验证 | 覆盖安装 0.7.1（versionCode 10）→ 启动无 FATAL → `uiautomator dump`：「联网 / 思考 / 图片 / 文件 / 短语」无挤压、用量行「↑933 ↓2.1k · ≈¥0.0092」正常；**旧库数据保留（迁移生效）** ✓；用户实机确认 LaTeX 渲染 ✓ |
+| 发布 | GitHub `3511440694huang-oss/ink-chat`（源码 70 文件）＋ [Release v0.7.1](https://github.com/3511440694huang-oss/ink-chat/releases/tag/v0.7.1)（APK 附件，sha256 `ea18a00e…61222`） |
+**本轮踩坑**：① 本机 `/storage`（fuse）会破坏 git 写 loose object（`git add` 报 "failed to insert into database"；`/root` 下正常）→ 仓库改用 `--separate-git-dir`（对象库置于 `/root`）规避；② 单测三处小坑：包名写错、Kotlin 字符串模板 `$` 转义、matrix 顶层 Group 断言修正。
 ### 墨屏真机备忘（来自安装堆栈）
 
 - 设备：**MiDuoKanReaderPro** · Android 8.1（SDK27）· armeabi-v7a
