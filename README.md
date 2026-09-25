@@ -171,3 +171,7 @@ app/src/main/java/com/ink/chat/
 - 设备：**MiDuoKanReaderPro** · Android 8.1（SDK27）· armeabi-v7a
 - 已知问题：ROM 阉割「安装未知应用」系统页 → MT 管理器唤起报 `Unknown error code -1`
 - 安装绕行：系统自带文件管理器打开 APK / `adb install`；不要依赖第三方安装器的跳转入口
+
+##许可证
+
+本项目以 [MIT License](LICENSE) 开源 · © 2026 3511440694huang-oss
