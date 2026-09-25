@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -70,7 +71,7 @@ import org.koin.androidx.compose.koinViewModel
 
 /**
  * 对话页（M3：多会话 —— 观察共享槽位自动切换；思考链折叠 / 停止 / 重试 / 复制 / 删除 / 跳转，零动画）。
- * 交互：顶栏 菜单→会话列表、目录→消息跳转弹窗、设置；↑/↓ 迷你键右侧边缘悬浮（无动画 jump）；
+ * 交互：顶栏 菜单→会话列表、目录→消息跳转弹窗、设置；↑/↓ 迷你翻页键右侧边缘悬浮（无动画整屏翻页）；
  * 点击消息 → 展开操作条；输入区发送键生成中变「停止」；列表页「跳到…」→ 本页无动画定位目标消息。
  */
 @Composable
@@ -226,15 +227,22 @@ fun ChatHomeScreen(
                 }
             }
 
-            // —— ↑/↓ 迷你跳转（右侧边缘悬浮 · 无动画 jump，§2.1 F3）——
+            // —— ↑/↓ 迷你翻页（右侧边缘悬浮 · 无动画整屏翻页，§2.1 F3）——
+            // 无动画整屏翻页：步长 = 可视区域高度；落点 = 相邻屏尚未展示内容的起点（无缝衔接，连续阅读）
             if (messages.isNotEmpty()) {
+                val flipPage: (Int) -> Unit = { dir ->
+                    scope.launch {
+                        val step = listState.layoutInfo.viewportSize.height.toFloat()
+                        listState.scrollBy(dir * step)
+                    }
+                }
                 Column(
                     Modifier.align(Alignment.CenterEnd),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    ElevatorKey("↑") { scope.launch { listState.scrollToItem(0) } }
+                    ElevatorKey("↑") { flipPage(-1) }
                     Spacer(Modifier.height(6.dp))
-                    ElevatorKey("↓") { scope.launch { listState.scrollToItem(messages.lastIndex) } }
+                    ElevatorKey("↓") { flipPage(1) }
                 }
             }
         }
@@ -508,7 +516,7 @@ private fun ImageStatusRow(
     }
 }
 
-/** 迷你跳转键：48dp 触区 / 36dp 视觉方块（1dp 细框，右侧边缘悬浮） */
+/** 迷你翻页键：48dp 触区 / 36dp 视觉方块（1dp 细框，右侧边缘悬浮） */
 @Composable
 private fun ElevatorKey(label: String, onClick: () -> Unit) {
     Box(
