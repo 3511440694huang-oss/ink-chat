@@ -166,6 +166,18 @@ app/src/main/java/com/ink/chat/
 | 发布 | GitHub 已发布 [Release v0.8.0](https://github.com/3511440694huang-oss/ink-chat/releases/tag/v0.8.0)（APK 附件，sha256 `9ab7ae19…18d3c3`） |
 
 **本轮踩坑**：① kapt / javac 的「非法 unicode 转义」陷阱——KDoc 里写 `\underset` 会生成 `\u` 序列致 stub 编译失败 → 改为双反斜杠；② Kotlin 块注释支持嵌套——KDoc 里写 `fonts/*` 会吞掉注释结尾（Unclosed comment）→ 改写为「fonts/ 目录下全部字体文件」；③ `pm install` 直读 `/storage` 源路径被 SELinux 拒（system_server 无 fuse 读权）→ 先 `cp /data/local/tmp` 再安装（沿用旧法）。
+
+### 2026-09-25 · v0.8.1 ↑/↓ 整屏翻页（真机验证 + 发布）
+
+| 项 | 结果 |
+|---|---|
+| 范围 | 右侧 ↑/↓ 迷你键：跳顶 / 跳底 → 按可视区域整屏翻页（无动画 `scrollBy`；步长 = 可视区域高度；落点 = 相邻屏尚未展示内容起点，连续阅读无缝衔接；到顶 / 底自动钳制）；代码注释与设计文档同步 |
+| 构建 | debug / release 编译一次通过；release 12.6MB（`app-release.apk`，versionCode 12 / versionName 0.8.1） |
+| 装机 | 覆盖安装 → 启动无 FATAL、进程存活 ✓；用户实机验证翻页交互 ✓；APK 归档 `发布/ink-chat-v0.8.1-release.apk`，sha256 `979a418a…ab2392` |
+| 发布 | GitHub 已发布 [Release v0.8.1](https://github.com/3511440694huang-oss/ink-chat/releases/tag/v0.8.1)（APK 附件，sha256 `979a418a…ab2392`） |
+
+**本轮踩坑**：GitHub Release API 的 `target_commitish` 不接受短 SHA（422「tag_name is not a valid tag」）→ 改用分支名 `main` 创建成功。
+
 ### 墨屏真机备忘（来自安装堆栈）
 
 - 设备：**MiDuoKanReaderPro** · Android 8.1（SDK27）· armeabi-v7a
