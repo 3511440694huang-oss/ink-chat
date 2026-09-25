@@ -163,7 +163,7 @@ app/src/main/java/com/ink/chat/
 | 测试 | 单元测试 19/19（新增 `TexCompatTest` 12 项：常见语料零残留扫描 + 关键修复点结构断言 + 行内 Unicode 降级） |
 | 构建 | release 12.6MB（`app-release.apk`，versionCode 11 / versionName 0.8.0）；清 kapt 缓存后一次通过 |
 | 装机 | 覆盖安装 v0.8.0 → 启动无 FATAL、进程存活 ✓（深度 UI 验收待解锁复核）；APK 归档 `发布/ink-chat-v0.8.0-release.apk`，sha256 `9ab7ae19…18d3c3` |
-| 发布 | _待定_（本地已就绪；GitHub 发布待用户确认后执行） |
+| 发布 | GitHub 已发布 [Release v0.8.0](https://github.com/3511440694huang-oss/ink-chat/releases/tag/v0.8.0)（APK 附件，sha256 `9ab7ae19…18d3c3`） |
 
 **本轮踩坑**：① kapt / javac 的「非法 unicode 转义」陷阱——KDoc 里写 `\underset` 会生成 `\u` 序列致 stub 编译失败 → 改为双反斜杠；② Kotlin 块注释支持嵌套——KDoc 里写 `fonts/*` 会吞掉注释结尾（Unclosed comment）→ 改写为「fonts/ 目录下全部字体文件」；③ `pm install` 直读 `/storage` 源路径被 SELinux 拒（system_server 无 fuse 读权）→ 先 `cp /data/local/tmp` 再安装（沿用旧法）。
 ### 墨屏真机备忘（来自安装堆栈）
