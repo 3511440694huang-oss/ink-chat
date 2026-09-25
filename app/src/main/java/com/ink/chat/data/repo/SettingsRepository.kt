@@ -96,26 +96,61 @@ class SettingsRepository(
     // —— 模板短语（M5 §2.1 A13：常用提示词片段库）——
 
     /** 短语库流（DataStore JSON → List） */
-    fun phrasesFlow(): Flow<List<String>> = store.settings.map { parsePhrases(it.phrasesJson) }
+    fun phrasesFlow(): Flow<List<String>> = store.settings.map { parseStringList(it.phrasesJson) }
 
     /** 追加一条短语（去首尾空白后存回） */
     suspend fun addPhrase(text: String) {
         val t = text.trim()
         if (t.isEmpty()) return
-        val list = parsePhrases(store.current().phrasesJson) + t
+        val list = parseStringList(store.current().phrasesJson) + t
         store.setPhrases(gson.toJson(list))
     }
 
     /** 按索引删除一条短语 */
     suspend fun removePhrase(index: Int) {
-        val list = parsePhrases(store.current().phrasesJson).toMutableList()
+        val list = parseStringList(store.current().phrasesJson).toMutableList()
         if (index in list.indices) {
             list.removeAt(index)
             store.setPhrases(gson.toJson(list))
         }
     }
 
-    private fun parsePhrases(json: String): List<String> =
+    // —— 系统提示词与提示词模板（M5.7）——
+
+    /** 系统提示词流（发送时注入 system 消息） */
+    fun systemPromptFlow(): Flow<String> = store.settings.map { it.systemPrompt }
+
+    /** 设置系统提示词（trim 后存；空串 = 关闭） */
+    suspend fun setSystemPrompt(text: String) = store.setSystemPrompt(text.trim())
+
+    /** 提示词模板库流 */
+    fun promptsFlow(): Flow<List<String>> = store.settings.map { parseStringList(it.promptsJson) }
+
+    /** 新增提示词模板 */
+    suspend fun addPrompt(text: String) {
+        val t = text.trim()
+        if (t.isEmpty()) return
+        val list = parseStringList(store.current().promptsJson) + t
+        store.setPrompts(gson.toJson(list))
+    }
+
+    /** 删除提示词模板（按索引） */
+    suspend fun removePrompt(index: Int) {
+        val list = parseStringList(store.current().promptsJson).toMutableList()
+        if (index in list.indices) {
+            list.removeAt(index)
+            store.setPrompts(gson.toJson(list))
+        }
+    }
+
+    /** 应用模板：写为当前系统提示词 */
+    suspend fun applyPrompt(text: String) = store.setSystemPrompt(text.trim())
+
+    // —— 自定义字体（M5.7）——
+
+    suspend fun setFontId(id: String) = store.setFontId(id)
+
+    private fun parseStringList(json: String): List<String> =
         if (json.isBlank()) emptyList()
         else runCatching {
             gson.fromJson(json, Array<String>::class.java)?.toList() ?: emptyList()

@@ -11,10 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ink.chat.data.datastore.AppSettings
+import com.ink.chat.data.fonts.FontManager
 import com.ink.chat.data.repo.SettingsRepository
 import com.ink.chat.ui.balance.BalanceScreen
 import com.ink.chat.ui.chat.ChatHomeScreen
@@ -22,6 +24,7 @@ import com.ink.chat.ui.sessions.SessionsScreen
 import com.ink.chat.ui.settings.SettingsScreen
 import com.ink.chat.ui.theme.InkTheme
 import com.ink.chat.ui.theme.THEME_INVERSE
+import com.ink.chat.ui.theme.inkFontFamilyOf
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
@@ -33,6 +36,7 @@ import org.koin.android.ext.android.inject
 class MainActivity : ComponentActivity() {
 
     private val settingsRepo: SettingsRepository by inject()
+    private val fontManager: FontManager by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,10 +56,16 @@ class MainActivity : ComponentActivity() {
                 applyWindowTheme(settings.theme == THEME_INVERSE)
             }
 
+            // 自定义字体（M5.7）：fontId 变更即时重载；加载失败回退系统默认
+            val customFont = remember(settings.fontId) {
+                fontManager.fileOf(settings.fontId)?.let { inkFontFamilyOf(it) }
+            }
+
             InkTheme(
                 theme = settings.theme,
                 fontScale = settings.fontScale,
                 lineSpacing = settings.lineSpacing,
+                fontFamily = customFont,
             ) {
                 AppNav()
             }

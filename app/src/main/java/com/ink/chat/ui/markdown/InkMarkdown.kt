@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.ink.chat.ui.components.inkClickable
 import com.ink.chat.ui.theme.Ink
 import com.ink.chat.ui.theme.InkType
+import com.ink.chat.ui.theme.LocalInkFontFamily
 import com.ink.chat.ui.theme.inkLh
 import kotlinx.coroutines.delay
 
@@ -94,38 +95,49 @@ fun InkMarkdown(
 
 @Composable
 private fun HeadingBlock(b: MdBlock.Heading, color: Color) {
+    val ff = LocalInkFontFamily.current
     val (size, top) = when (b.level) {
         1 -> 22f to 8.dp
         2 -> 20f to 6.dp
         3 -> 19f to 4.dp
         else -> 17f to 2.dp
     }
-    InlineText(
-        spans = b.spans,
-        modifier = Modifier.padding(top = top),
-        style = TextStyle(
-            fontSize = size.sp,
-            lineHeight = inkLh(size * 1.45f),
-            fontWeight = FontWeight.SemiBold,
-            color = color,
-        ),
-    )
+    Column(Modifier.padding(top = top)) {
+        InlineText(
+            spans = b.spans,
+            style = TextStyle(
+                fontSize = size.sp,
+                lineHeight = inkLh(size * 1.45f),
+                fontWeight = FontWeight.SemiBold,
+                color = color,
+                fontFamily = ff,
+            ),
+        )
+        // 一级 / 二级标题下细线（M5.7 排版优化：强化层级，书页感）
+        if (b.level <= 2) {
+            Spacer(Modifier.height(5.dp))
+            Box(Modifier.fillMaxWidth().height(Ink.Hairline).background(Ink.Line))
+        }
+    }
 }
 
 @Composable
 private fun ParagraphBlock(b: MdBlock.Paragraph, color: Color) {
+    val ff = LocalInkFontFamily.current
     InlineText(
         spans = b.spans,
         style = TextStyle(
             fontSize = InkType.Body,
             lineHeight = inkLh(30f),
             color = color,
+            fontFamily = ff,
         ),
     )
 }
 
 @Composable
 private fun ItemBlock(b: MdBlock.Item, color: Color) {
+    val ff = LocalInkFontFamily.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -145,6 +157,7 @@ private fun ItemBlock(b: MdBlock.Item, color: Color) {
                 fontSize = InkType.Body,
                 lineHeight = inkLh(28f),
                 color = color,
+                fontFamily = ff,
             ),
         )
     }
@@ -152,6 +165,7 @@ private fun ItemBlock(b: MdBlock.Item, color: Color) {
 
 @Composable
 private fun QuoteBlock(b: MdBlock.Quote) {
+    val ff = LocalInkFontFamily.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -170,6 +184,7 @@ private fun QuoteBlock(b: MdBlock.Quote) {
                             fontSize = InkType.Alt,
                             lineHeight = inkLh(26f),
                             color = Ink.InkDeep,
+                            fontFamily = ff,
                         ),
                     )
                 }

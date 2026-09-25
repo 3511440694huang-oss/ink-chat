@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +55,9 @@ val LocalInkPalette = staticCompositionLocalOf { InkPalette.Paper }
 
 /** 行距因子：标准 = 1.0、紧密 = 0.85（M4 §2.1 D6） */
 val LocalInkLineFactor = staticCompositionLocalOf { 1.0f }
+
+/** 自定义正文字体（M5.7；null = 系统默认）。显式构建 TextStyle 的调用方需读取本项兜底。 */
+val LocalInkFontFamily = staticCompositionLocalOf<FontFamily?> { null }
 
 /** 行高 = 基础值 × 行距因子（字号缩放由 LocalDensity.fontScale 统一承担） */
 @Composable

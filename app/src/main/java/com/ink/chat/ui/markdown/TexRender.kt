@@ -41,6 +41,12 @@ internal sealed class TexNode {
 
     /** 组合标记（上划线 / 帽 / 向量等；M5.6） */
     data class Accent(val mark: String, val body: TexNode) : TexNode()
+
+    /** 方框（\boxed；M5.7）：内容外包一圈细框 */
+    data class Boxed(val body: TexNode) : TexNode()
+
+    /** 上下叠标记（\\overset / \\underset / \\stackrel；M5.7）：小字叠在基体上 / 下 */
+    data class Stacked(val base: TexNode, val top: TexNode? = null, val bottom: TexNode? = null) : TexNode()
 }
 
 // —— 解析器 ——
@@ -84,30 +90,46 @@ internal object TexParser {
         "simeq" to ("≃" to false), "cong" to ("≅" to false), "propto" to ("∝" to false),
         "ll" to ("≪" to false), "gg" to ("≫" to false), "doteq" to ("≐" to false),
         "asymp" to ("≍" to false), "prec" to ("≺" to false), "succ" to ("≻" to false),
+        "preceq" to ("⪯" to false), "succeq" to ("⪰" to false),
+        "mid" to ("|" to false), "parallel" to ("∥" to false), "perp" to ("⊥" to false),
+        "vdash" to ("⊢" to false), "dashv" to ("⊣" to false),
         // 集合 / 逻辑
         "infty" to ("∞" to false), "partial" to ("∂" to true), "nabla" to ("∇" to false),
         "forall" to ("∀" to false), "exists" to ("∃" to false), "in" to ("∈" to false),
         "notin" to ("∉" to false), "ni" to ("∋" to false), "subset" to ("⊂" to false),
         "subseteq" to ("⊆" to false), "supset" to ("⊃" to false), "supseteq" to ("⊇" to false),
         "cup" to ("∪" to false), "cap" to ("∩" to false), "setminus" to ("∖" to false),
+        "sqcup" to ("⊔" to false), "sqcap" to ("⊓" to false),
         "emptyset" to ("∅" to false), "varnothing" to ("∅" to false), "neg" to ("¬" to false),
-        "land" to ("∧" to false), "lor" to ("∨" to false), "therefore" to ("∴" to false),
-        "because" to ("∵" to false),
+        "lnot" to ("¬" to false), "top" to ("⊤" to false), "bot" to ("⊥" to false),
+        "land" to ("∧" to false), "lor" to ("∨" to false), "wedge" to ("∧" to false),
+        "vee" to ("∨" to false), "therefore" to ("∴" to false), "because" to ("∵" to false),
         // 箭头
         "to" to ("→" to false), "rightarrow" to ("→" to false), "leftarrow" to ("←" to false),
+        "gets" to ("←" to false),
         "Rightarrow" to ("⇒" to false), "Leftarrow" to ("⇐" to false),
+        "implies" to ("⟹" to false), "impliedby" to ("⟸" to false), "iff" to ("⟺" to false),
+        "Longrightarrow" to ("⟹" to false), "Longleftarrow" to ("⟸" to false),
+        "Longleftrightarrow" to ("⟺" to false),
         "leftrightarrow" to ("↔" to false), "mapsto" to ("↦" to false),
         "uparrow" to ("↑" to false), "downarrow" to ("↓" to false),
+        "nearrow" to ("↗" to false), "searrow" to ("↘" to false),
+        "swarrow" to ("↙" to false), "nwarrow" to ("↖" to false),
         "longrightarrow" to ("⟶" to false), "longleftarrow" to ("⟵" to false),
         // 大运算符
         "sum" to ("∑" to false), "prod" to ("∏" to false), "int" to ("∫" to false),
         "iint" to ("∬" to false), "oint" to ("∮" to false), "lim" to ("lim" to false),
+        "bigcup" to ("⋃" to false), "bigcap" to ("⋂" to false), "coprod" to ("∐" to false),
+        "bigcirc" to ("◯" to false), "bigoplus" to ("⨁" to false), "bigotimes" to ("⨂" to false),
+        "bigodot" to ("⨀" to false),
         // 杂项
         "cdots" to ("⋯" to false), "ldots" to ("…" to false), "dots" to ("…" to false),
         "vdots" to ("⋮" to false), "ddots" to ("⋱" to false), "angle" to ("∠" to false),
         "degree" to ("°" to false), "prime" to ("′" to false), "dagger" to ("†" to false),
+        "ddagger" to ("‡" to false), "diamond" to ("⋄" to false), "ominus" to ("⊖" to false),
         "square" to ("□" to false), "triangle" to ("△" to false), "checkmark" to ("✓" to false),
         "hbar" to ("ℏ" to false), "ell" to ("ℓ" to true), "aleph" to ("ℵ" to false),
+        "varkappa" to ("ϰ" to true), "wp" to ("℘" to false),
         "Re" to ("ℜ" to false), "Im" to ("ℑ" to false),
         // 函数名（直立）
         "sin" to ("sin" to false), "cos" to ("cos" to false), "tan" to ("tan" to false),
@@ -118,12 +140,15 @@ internal object TexParser {
         "exp" to ("exp" to false), "max" to ("max" to false), "min" to ("min" to false),
         "sup" to ("sup" to false), "inf" to ("inf" to false), "det" to ("det" to false),
         "dim" to ("dim" to false), "gcd" to ("gcd" to false), "mod" to ("mod" to false),
-        "bmod" to ("mod" to false), "ker" to ("ker" to false),
+        "bmod" to ("mod" to false), "ker" to ("ker" to false), "arg" to ("arg" to false),
+        "deg" to ("deg" to false), "sgn" to ("sgn" to false), "Pr" to ("Pr" to false),
         // 定界符
         "{" to ("{" to false), "}" to ("}" to false), "lbrace" to ("{" to false),
         "rbrace" to ("}" to false), "langle" to ("⟨" to false), "rangle" to ("⟩" to false),
         "lvert" to ("|" to false), "rvert" to ("|" to false), "vert" to ("|" to false),
         "Vert" to ("‖" to false), "lVert" to ("‖" to false), "rVert" to ("‖" to false),
+        "lfloor" to ("⌊" to false), "rfloor" to ("⌋" to false),
+        "lceil" to ("⌈" to false), "rceil" to ("⌉" to false),
     )
 
     private val BIG_OPS = setOf("sum", "prod", "int", "iint", "oint", "lim")
@@ -252,15 +277,23 @@ internal object TexParser {
                 var sup: TexNode? = null
                 var sub: TexNode? = null
                 while (true) {
-                    when (peek()) {
+                    when (val pk = peek()) {
                         is Tok.Caret -> { next(); sup = parseArg() }
                         is Tok.Under -> { next(); sub = parseArg() }
+                        // \limits / \nolimits（M5.7）：吸收——保证随后的 ^/_ 仍归属本运算符
+                        is Tok.Cmd -> {
+                            if (pk.name == "limits" || pk.name == "nolimits") {
+                                next()
+                                continue
+                            }
+                            return TexNode.BigOp(sym, sup, sub)
+                        }
                         else -> return TexNode.BigOp(sym, sup, sub)
                     }
                 }
             }
             when (name) {
-                "frac", "dfrac", "tfrac" -> {
+                "frac", "dfrac", "tfrac", "cfrac" -> {
                     val a = parseArg()
                     val b = parseArg()
                     return TexNode.Frac(a, b)
@@ -291,6 +324,49 @@ internal object TexParser {
                     // 样式透传（v1：内容原样渲染）
                     return parseArg()
                 }
+                // 字体声明 / 样式声明（M5.7）：透传内容（墨屏无彩色与字体族，降级不丢内容）
+                "boldsymbol", "bm", "mathscr", "mathfrak", "mathnormal",
+                "mathop", "mathrel", "mathbin", "mathord", "mathpunct",
+                "mathopen", "mathclose" -> return parseArg()
+                // 声明式旧字体命令（\bf x 等）：忽略声明本身，后续内容继续渲染
+                "bf", "rm", "it", "sf", "tt", "cal", "frak" -> return null
+                // 颜色命令（M5.7）：墨屏无彩色——丢弃颜色参数、保留内容
+                "color" -> {
+                    parseArg()
+                    return null
+                }
+                "textcolor" -> {
+                    parseArg()
+                    return parseArg()
+                }
+                // 空白 / 尺寸 / 线命令（M5.7）：忽略（不残留 \"\\cmd" 文本）
+                "hspace", "vspace", "kern", "mkern", "phantom", "hphantom", "vphantom" -> {
+                    parseArg()
+                    return null
+                }
+                "hline" -> return null
+                "cline" -> {
+                    readBraceName()
+                    return null
+                }
+                // 定界符尺寸修饰（\big( 等）：忽略修饰，括号本体照常渲染
+                "big", "Big", "bigg", "Bigg", "bigm",
+                "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr" -> return null
+                // 方框 / 上下叠标记 / 花括号标注（M5.7）
+                "boxed" -> return TexNode.Boxed(parseArg())
+                "overset" -> {
+                    val top = parseArg()
+                    return TexNode.Stacked(parseArg(), top = top)
+                }
+                "underset" -> {
+                    val bottom = parseArg()
+                    return TexNode.Stacked(parseArg(), bottom = bottom)
+                }
+                "stackrel" -> {
+                    val top = parseArg()
+                    return TexNode.Stacked(parseArg(), top = top)
+                }
+                "underbrace", "overbrace" -> return parseArg()
                 "begin" -> {
                     // 环境（M5.6）：cases / aligned / matrix 系；& 分列、\\ 分行
                     val env = readBraceName() ?: return TexNode.Group(emptyList())
@@ -323,11 +399,17 @@ internal object TexParser {
                 }
                 "binom" -> return TexNode.Fence("(", ")", TexNode.Frac(parseArg(), parseArg()))
                 "overline", "bar" -> return TexNode.Accent("‾", parseArg())
-                "hat" -> return TexNode.Accent("^", parseArg())
-                "vec" -> return TexNode.Accent("→", parseArg())
+                "hat", "widehat" -> return TexNode.Accent("^", parseArg())
+                "vec", "overrightarrow" -> return TexNode.Accent("→", parseArg())
+                "overleftarrow" -> return TexNode.Accent("←", parseArg())
                 "dot" -> return TexNode.Accent("·", parseArg())
                 "ddot" -> return TexNode.Accent("··", parseArg())
-                "tilde" -> return TexNode.Accent("~", parseArg())
+                "tilde", "widetilde" -> return TexNode.Accent("~", parseArg())
+                "acute" -> return TexNode.Accent("´", parseArg())
+                "grave" -> return TexNode.Accent("`", parseArg())
+                "breve" -> return TexNode.Accent("˘", parseArg())
+                "check" -> return TexNode.Accent("ˇ", parseArg())
+                "mathring" -> return TexNode.Accent("˚", parseArg())
                 "left" -> {
                     val open = delimOf(next())
                     val body = parseSeq(stopAtRight = true)
@@ -339,7 +421,7 @@ internal object TexParser {
                     return TexNode.Fence(open, close, body)
                 }
                 "right" -> return null // 由 parseSeq 截停，保险
-                "displaystyle", "textstyle" -> return null
+                "displaystyle", "textstyle", "limits", "nolimits" -> return null
                 ",", ";", ":", " ", "quad", "qquad", "!" -> {
                     val em = when (name) {
                         "," -> 0.17f
@@ -384,6 +466,8 @@ internal object TexParser {
             (n.sub?.let { "_" + toPlainText(it) } ?: "")
         is TexNode.Env -> n.rows.joinToString(" ") { row -> row.joinToString(" ") { toPlainText(it) } }
         is TexNode.Accent -> toPlainText(n.body)
+        is TexNode.Boxed -> toPlainText(n.body)
+        is TexNode.Stacked -> toPlainText(n.base)
         else -> ""
     }
 }
@@ -422,6 +506,8 @@ internal object TexLayout {
         is TexNode.Fence -> measureFence(node, ctx, scale)
         is TexNode.Env -> measureEnv(node, ctx, scale)
         is TexNode.Accent -> measureAccent(node, ctx, scale)
+        is TexNode.Boxed -> measureBoxed(node, ctx, scale)
+        is TexNode.Stacked -> measureStacked(node, ctx, scale)
         is TexNode.Sp -> TexBox(node.em * ctx.px(scale), 0f, 0f) { _, _, _ -> }
     }
 
@@ -568,29 +654,43 @@ internal object TexLayout {
         val basePx = ctx.px(scale)
         val need = body.height + basePx * 0.1f
 
-        val openAt1 = layout(n.open, ctx, scale, false).size.height.toFloat().coerceAtLeast(1f)
+        // "\left." / "\right."（M5.7）："." 表示无定界符——不测量、不绘制
+        val openVisible = n.open != "." && n.open.isNotEmpty()
+        val closeVisible = n.close != "." && n.close.isNotEmpty()
+
+        val openAt1 = if (openVisible) {
+            layout(n.open, ctx, scale, false).size.height.toFloat().coerceAtLeast(1f)
+        } else 1f
         val escale = scale * (need / openAt1).coerceIn(1f, 2.4f)
-        val open = layout(n.open, ctx, escale, false)
-        val close = layout(n.close, ctx, escale, false)
-        val ow = open.size.width.toFloat()
-        val cw = close.size.width.toFloat()
-        val oa = open.firstBaseline
-        val oh = open.size.height.toFloat()
-        val ca = close.firstBaseline
-        val ch = close.size.height.toFloat()
+        val open = if (openVisible) layout(n.open, ctx, escale, false) else null
+        val close = if (closeVisible) layout(n.close, ctx, escale, false) else null
+        val ow = open?.size?.width?.toFloat() ?: 0f
+        val cw = close?.size?.width?.toFloat() ?: 0f
+        val oa = open?.firstBaseline ?: 0f
+        val oh = open?.size?.height?.toFloat() ?: 0f
+        val ca = close?.firstBaseline ?: 0f
+        val ch = close?.size?.height?.toFloat() ?: 0f
 
         // 括号与内容垂直中心对齐
         val bodyCenter = (body.ascent - body.descent) / 2f
         val oShift = bodyCenter - (oa - oh / 2f)
         val cShift = bodyCenter - (ca - ch / 2f)
 
-        val ascent = maxOf(body.ascent, oa - oShift, ca - cShift)
-        val descent = maxOf(body.descent, (oh - oa) + oShift, (ch - ca) + cShift)
+        val ascent = maxOf(
+            body.ascent,
+            if (open != null) oa - oShift else 0f,
+            if (close != null) ca - cShift else 0f,
+        )
+        val descent = maxOf(
+            body.descent,
+            if (open != null) (oh - oa) + oShift else 0f,
+            if (close != null) (ch - ca) + cShift else 0f,
+        )
         val width = ow + body.width + cw
         return TexBox(width, ascent, descent) { scope, x, baseline ->
-            scope.drawText(open, topLeft = Offset(x, baseline + oShift - oa))
+            open?.let { scope.drawText(it, topLeft = Offset(x, baseline + oShift - oa)) }
             body.drawAt(scope, x + ow, baseline)
-            scope.drawText(close, topLeft = Offset(x + ow + body.width, baseline + cShift - ca))
+            close?.let { scope.drawText(it, topLeft = Offset(x + ow + body.width, baseline + cShift - ca)) }
         }
     }
 
@@ -675,6 +775,51 @@ internal object TexLayout {
                 scope,
                 x + (width - mark.width) / 2f,
                 baseline - body.ascent - gap - mark.descent,
+            )
+        }
+    }
+
+    /** 方框布局（M5.7 \boxed）：内容外包一圈细框线 */
+    private fun measureBoxed(n: TexNode.Boxed, ctx: TexContext, scale: Float): TexBox {
+        val body = measure(n.body, ctx, scale)
+        val pad = ctx.px(scale) * 0.28f
+        val lineW = maxOf(1f, ctx.px(scale) * 0.05f)
+        val width = body.width + pad * 2f
+        val height = body.height + pad * 2f
+        return TexBox(width, body.ascent + pad, body.descent + pad) { scope, x, baseline ->
+            body.drawAt(scope, x + pad, baseline)
+            scope.drawRect(
+                ctx.color,
+                topLeft = Offset(x + lineW / 2f, baseline - body.ascent - pad + lineW / 2f),
+                size = androidx.compose.ui.geometry.Size(
+                    (width - lineW).coerceAtLeast(0f),
+                    (height - lineW).coerceAtLeast(0f),
+                ),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = lineW),
+            )
+        }
+    }
+
+    /** 上下叠标记布局（M5.7 \\overset / \\underset / \\stackrel）：小字叠放于基体上 / 下 */
+    private fun measureStacked(n: TexNode.Stacked, ctx: TexContext, scale: Float): TexBox {
+        val base = measure(n.base, ctx, scale)
+        val top = n.top?.let { measure(it, ctx, scale * 0.7f) }
+        val bottom = n.bottom?.let { measure(it, ctx, scale * 0.7f) }
+        val gap = ctx.px(scale) * 0.12f
+        val width = maxOf(base.width, top?.width ?: 0f, bottom?.width ?: 0f)
+        val ascent = base.ascent + (top?.let { it.height + gap } ?: 0f)
+        val descent = base.descent + (bottom?.let { it.height + gap } ?: 0f)
+        return TexBox(width, ascent, descent) { scope, x, baseline ->
+            base.drawAt(scope, x + (width - base.width) / 2f, baseline)
+            top?.drawAt(
+                scope,
+                x + (width - top.width) / 2f,
+                baseline - base.ascent - gap - top.descent,
+            )
+            bottom?.drawAt(
+                scope,
+                x + (width - bottom.width) / 2f,
+                baseline + base.descent + gap + bottom.ascent,
             )
         }
     }

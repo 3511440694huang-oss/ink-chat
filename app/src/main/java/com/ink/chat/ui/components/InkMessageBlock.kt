@@ -35,6 +35,7 @@ import com.ink.chat.domain.model.MessageStatus
 import com.ink.chat.ui.markdown.InkMarkdown
 import com.ink.chat.ui.theme.Ink
 import com.ink.chat.ui.theme.InkType
+import com.ink.chat.ui.theme.LocalInkFontFamily
 import com.ink.chat.ui.theme.inkLh
 import com.ink.chat.util.TimeFmt
 import kotlinx.coroutines.delay
@@ -249,6 +250,7 @@ private fun metaLine(message: Message, modelName: String): String {
 @Composable
 private fun ThinkPanel(messageId: Long, text: String, thinkMs: Long?) {
     var expanded by rememberSaveable(messageId) { mutableStateOf(false) }
+    val ff = LocalInkFontFamily.current
     val suffix = if (thinkMs != null) " · " + fmtSeconds(thinkMs) else ""
     Column(Modifier.fillMaxWidth()) {
         Row(
@@ -280,6 +282,7 @@ private fun ThinkPanel(messageId: Long, text: String, thinkMs: Long?) {
                         lineHeight = inkLh(26f),
                         color = Ink.InkMid,
                         textIndent = TextIndent(firstLine = 30.sp),
+                        fontFamily = ff,
                     ),
                 )
             }

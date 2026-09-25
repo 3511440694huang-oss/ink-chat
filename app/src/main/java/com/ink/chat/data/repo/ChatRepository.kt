@@ -414,8 +414,13 @@ class ChatRepository(
             val useVision = visionMsgId != null
             val model = if (useVision) VISION_MODEL else s.model
             val useWeb = s.webSearch && !useVision
-            val apiMessages = buildApiMessages(history, useTools = useWeb, visionMsgId = visionMsgId)
-            if (apiMessages.isEmpty()) {
+            val apiMessages = buildApiMessages(
+                history,
+                useTools = useWeb,
+                visionMsgId = visionMsgId,
+                systemPrompt = s.systemPrompt.takeIf { it.isNotBlank() },
+            )
+            if (history.isEmpty()) {
                 messageDao.finish(assistantId, "failed", "没有可用的上下文。", "", null, null, null, null)
                 return SendOutcome.Failure("没有可用的上下文。", ErrorAction.NONE)
             }
@@ -524,42 +529,54 @@ class ChatRepository(
      * useTools=true（联网）时拼回历史 reasoning_content；普通对话省略。
      * 注：Anthropic 兼容端点由 doAnthropicMessages 转换装配，当前仅转发文本内容块。
      * M5：visionMsgId 对应消息用 file 内容块引用 file_id（A.5），其余附件消息文本化。
+     * M5.7：systemPrompt 非空时置于消息列表最前（Anthropic 端点会提升为顶层 system）。
      */
     private fun buildApiMessages(
         history: List<MessageEntity>,
         useTools: Boolean,
         visionMsgId: Long?,
-    ): List<JsonObject> = history.map { m ->
-        JsonObject().apply {
-            addProperty("role", m.role)
-            if (m.id == visionMsgId && !m.attachments.isNullOrEmpty()) {
-                add(
-                    "content",
-                    JsonArray().apply {
-                        m.attachments.forEach { fid ->
-                            // 与官方现行文档（2026-09）对齐：file 块平铺 file_id
-                            // （旧嵌套 {"file":{"file_id"}} 为历史实测格式，已弃用）
+        systemPrompt: String? = null,
+    ): List<JsonObject> {
+        val out = ArrayList<JsonObject>(history.size + 1)
+        systemPrompt?.takeIf { it.isNotBlank() }?.let { sp ->
+            out += JsonObject().apply {
+                addProperty("role", "system")
+                addProperty("content", sp)
+            }
+        }
+        history.forEach { m ->
+            out += JsonObject().apply {
+                addProperty("role", m.role)
+                if (m.id == visionMsgId && !m.attachments.isNullOrEmpty()) {
+                    add(
+                        "content",
+                        JsonArray().apply {
+                            m.attachments.forEach { fid ->
+                                // 与官方现行文档（2026-09）对齐：file 块平铺 file_id
+                                // （旧嵌套 {"file":{"file_id"}} 为历史实测格式，已弃用）
+                                add(
+                                    JsonObject().apply {
+                                        addProperty("type", "file")
+                                        addProperty("file_id", fid)
+                                    }
+                                )
+                            }
                             add(
                                 JsonObject().apply {
-                                    addProperty("type", "file")
-                                    addProperty("file_id", fid)
+                                    addProperty("type", "text")
+                                    addProperty("text", m.content)
                                 }
                             )
                         }
-                        add(
-                            JsonObject().apply {
-                                addProperty("type", "text")
-                                addProperty("text", m.content)
-                            }
-                        )
-                    }
-                )
-            } else {
-                addProperty("content", m.content)
-            }
-            if (useTools && m.role == "assistant" && !m.reasoningContent.isNullOrEmpty()) {
-                addProperty("reasoning_content", m.reasoningContent)
+                    )
+                } else {
+                    addProperty("content", m.content)
+                }
+                if (useTools && m.role == "assistant" && !m.reasoningContent.isNullOrEmpty()) {
+                    addProperty("reasoning_content", m.reasoningContent)
+                }
             }
         }
+        return out
     }
 }

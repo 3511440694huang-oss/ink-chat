@@ -5,7 +5,10 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ink.chat.BuildConfig
+import com.ink.chat.data.backup.BackupManager
 import com.ink.chat.data.datastore.AppSettings
+import com.ink.chat.data.fonts.FontManager
 import com.ink.chat.data.repo.ChatRepository
 import com.ink.chat.data.repo.SettingsRepository
 import com.ink.chat.data.transfer.TransferCodec
@@ -21,10 +24,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-/** 设置页 ViewModel（M1：账户与对话默认值；M3：数据区块——导入 / 导出全部 / 存储占用） */
+/** 设置页 ViewModel（M1：账户与对话默认值；M3：数据区块；M5.7：提示词 / 字体 / 备份恢复） */
 class SettingsViewModel(
     private val repo: SettingsRepository,
     private val chatRepo: ChatRepository,
+    private val backupManager: BackupManager,
+    private val fontManager: FontManager,
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = repo.settings
@@ -113,6 +118,80 @@ class SettingsViewModel(
         _notice.value = null
     }
 
+    // —— 系统提示词与模板（M5.7）——
+
+    /** 提示词模板库 */
+    val prompts: StateFlow<List<String>> = repo.promptsFlow()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun setSystemPrompt(text: String) {
+        viewModelScope.launch { repo.setSystemPrompt(text) }
+    }
+
+    fun applyPrompt(text: String) {
+        viewModelScope.launch {
+            repo.applyPrompt(text)
+            _notice.value = "已应用模板为系统提示词。"
+        }
+    }
+
+    fun addPrompt(text: String) {
+        viewModelScope.launch { repo.addPrompt(text) }
+    }
+
+    fun removePrompt(index: Int) {
+        viewModelScope.launch { repo.removePrompt(index) }
+    }
+
+    // —— 自定义字体（M5.7）——
+
+    private val _fonts = MutableStateFlow<List<FontManager.FontItem>>(emptyList())
+    val fonts: StateFlow<List<FontManager.FontItem>> = _fonts
+
+    init {
+        viewModelScope.launch { _fonts.value = fontManager.list() }
+    }
+
+    fun refreshFonts() {
+        _fonts.value = fontManager.list()
+    }
+
+    /** 导入字体并立即应用（成功时） */
+    fun importFont(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            _notice.value = "正在导入字体…"
+            when (val r = fontManager.import(context.contentResolver, uri)) {
+                is FontManager.ImportResult.Ok -> {
+                    repo.setFontId(r.fileName)
+                    refreshFonts()
+                    _notice.value = "字体已导入并应用：${r.fileName}"
+                }
+                FontManager.ImportResult.Unsupported ->
+                    _notice.value = "！不支持的文件格式（仅 ttf / otf / ttc）。"
+                FontManager.ImportResult.TooBig ->
+                    _notice.value = "！字体文件超过 8MB 上限。"
+                FontManager.ImportResult.Failed ->
+                    _notice.value = "！字体导入失败，请重试。"
+            }
+        }
+    }
+
+    /** 删除字体；若删除的是当前选中项则回退系统默认 */
+    fun deleteFont(fileName: String) {
+        viewModelScope.launch {
+            if (fontManager.delete(fileName)) {
+                if (repo.current().fontId == fileName) repo.setFontId(FontManager.SYSTEM)
+                refreshFonts()
+            } else {
+                _notice.value = "！字体删除失败。"
+            }
+        }
+    }
+
+    fun setFontId(id: String) {
+        viewModelScope.launch { repo.setFontId(id) }
+    }
+
     // —— 数据区块（M3，§2.1 B9/B10）——
 
     private val _storageText = MutableStateFlow("—")
@@ -165,6 +244,40 @@ class SettingsViewModel(
                 onFailure = { t -> "！" + (t.message ?: "导入失败。") },
             )
             refreshStorage(context)
+        }
+    }
+
+    // —— 备份 / 恢复（M5.7）——
+
+    /** 恢复暂存完成信号：UI 观察后自动重启应用完成收尾 */
+    private val _rebootNeeded = MutableStateFlow(false)
+    val rebootNeeded: StateFlow<Boolean> = _rebootNeeded
+
+    /** 导出完整备份（数据库 + 设置 + 字体；不含 API Key） */
+    fun exportBackup(resolver: ContentResolver, uri: Uri) {
+        viewModelScope.launch {
+            _notice.value = "正在备份…"
+            when (val r = backupManager.export(resolver, uri, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)) {
+                is BackupManager.ExportResult.Ok ->
+                    _notice.value = "已备份（${fmtSize(r.bytes)}）：${r.fileName}"
+                BackupManager.ExportResult.Failed ->
+                    _notice.value = "！备份失败，请重试。"
+            }
+        }
+    }
+
+    /** 从备份恢复：解压暂存 + 校验；成功后由 UI 触发重启以完成替换 */
+    fun stageRestore(resolver: ContentResolver, uri: Uri) {
+        viewModelScope.launch {
+            _notice.value = "正在准备恢复…"
+            when (val r = backupManager.stageRestore(resolver, uri)) {
+                BackupManager.RestoreStage.Ok -> {
+                    _notice.value = "恢复已就绪，应用将自动重启完成收尾。"
+                    _rebootNeeded.value = true
+                }
+                is BackupManager.RestoreStage.Failed ->
+                    _notice.value = "！" + r.reason
+            }
         }
     }
 

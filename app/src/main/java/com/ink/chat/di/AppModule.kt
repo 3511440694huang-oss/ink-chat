@@ -1,7 +1,9 @@
 package com.ink.chat.di
 
 import com.google.gson.Gson
+import com.ink.chat.data.backup.BackupManager
 import com.ink.chat.data.datastore.SettingsStore
+import com.ink.chat.data.fonts.FontManager
 import com.ink.chat.data.repo.ChatRepository
 import com.ink.chat.data.repo.ConversationHolder
 import com.ink.chat.data.repo.SettingsRepository
@@ -48,11 +50,15 @@ val appModule = module {
 
     single { TextFileManager(androidContext()) }
 
+    single { FontManager(androidContext()) }
+
+    single { BackupManager(androidContext(), get(), get(), get()) }
+
     single { ChatRepository(get(), get(), get(), get(), get(), get()) }
     single { SettingsRepository(get(), get(), get(), get()) }
 
     viewModel { ChatViewModel(get(), get(), get(), get(), get()) }
     viewModel { SessionsViewModel(get(), get()) }
-    viewModel { SettingsViewModel(get(), get()) }
+    viewModel { SettingsViewModel(get(), get(), get(), get()) }
     viewModel { BalanceViewModel(get(), get()) }
 }

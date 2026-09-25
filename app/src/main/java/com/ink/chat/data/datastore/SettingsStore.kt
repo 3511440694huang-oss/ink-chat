@@ -27,6 +27,10 @@ data class AppSettings(
     val balanceJson: String = "",
     /** 模板短语库（M5 §2.1 A13；JSON 字符串数组） */
     val phrasesJson: String = "",
+    /** 提示词模板库（M5.7；JSON 字符串数组） */
+    val promptsJson: String = "",
+    /** 自定义字体（M5.7；"system" 或 fonts/ 下文件名） */
+    val fontId: String = "system",
 )
 
 class SettingsStore(private val context: Context) {
@@ -44,6 +48,9 @@ class SettingsStore(private val context: Context) {
         val SYSTEM_PROMPT = stringPreferencesKey("system_prompt")
         val BALANCE = stringPreferencesKey("balance_json")
         val PHRASES = stringPreferencesKey("phrases")
+        val PROMPTS = stringPreferencesKey("prompts")
+        /** 自定义字体（M5.7）："system" = 系统默认；其它 = fonts/ 目录下文件名 */
+        val FONT_ID = stringPreferencesKey("font_id")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -60,6 +67,8 @@ class SettingsStore(private val context: Context) {
             systemPrompt = p[Keys.SYSTEM_PROMPT] ?: "",
             balanceJson = p[Keys.BALANCE] ?: "",
             phrasesJson = p[Keys.PHRASES] ?: "",
+            promptsJson = p[Keys.PROMPTS] ?: "",
+            fontId = p[Keys.FONT_ID] ?: "system",
         )
     }
 
@@ -88,6 +97,45 @@ class SettingsStore(private val context: Context) {
     suspend fun setBalance(json: String) = update { it[Keys.BALANCE] = json }
 
     suspend fun setPhrases(json: String) = update { it[Keys.PHRASES] = json }
+
+    suspend fun setPrompts(json: String) = update { it[Keys.PROMPTS] = json }
+
+    /** 系统提示词（M5.7；空串 = 不注入） */
+    suspend fun setSystemPrompt(v: String) = update { it[Keys.SYSTEM_PROMPT] = v }
+
+    /** 自定义字体 id（M5.7） */
+    suspend fun setFontId(v: String) = update { it[Keys.FONT_ID] = v }
+
+    /** 备份恢复：批量写回显示 / 对话默认值 / 提示词 / 短语（不含 API Key——与设备密钥绑定，保持本机现值） */
+    suspend fun restoreFrom(
+        model: String,
+        effort: String,
+        thinkingEnabled: Boolean,
+        stream: Boolean,
+        webSearch: Boolean,
+        fontScale: Float,
+        lineSpacing: String,
+        theme: String,
+        systemPrompt: String,
+        balanceJson: String,
+        phrasesJson: String,
+        promptsJson: String,
+        fontId: String,
+    ) = update { p ->
+        p[Keys.MODEL] = model
+        p[Keys.EFFORT] = effort
+        p[Keys.THINKING] = thinkingEnabled
+        p[Keys.STREAM] = stream
+        p[Keys.WEB_SEARCH] = webSearch
+        p[Keys.FONT_SCALE] = fontScale
+        p[Keys.LINE_SPACING] = lineSpacing
+        p[Keys.THEME] = theme
+        p[Keys.SYSTEM_PROMPT] = systemPrompt
+        p[Keys.BALANCE] = balanceJson
+        p[Keys.PHRASES] = phrasesJson
+        p[Keys.PROMPTS] = promptsJson
+        p[Keys.FONT_ID] = fontId
+    }
 
     // —— 显示设置（M4 §2.1 D6）——
     suspend fun setFontScale(v: Float) = update { it[Keys.FONT_SCALE] = v }

@@ -45,7 +45,7 @@ class DeepSeekApi(
         /** 流式批量提交阈值（墨水屏：按段刷新，§4.5） */
         private const val STREAM_BATCH_CHARS = 200
 
-        /** 联网来源随正文附加上限（墨水屏阅读友好） */
+        /** 联网来源随正文附加上限（M5.7：引用块版式；去重后取前 N 条） */
         private const val MAX_SOURCES = 5
     }
 
@@ -425,15 +425,17 @@ class DeepSeekApi(
     /**
      * Anthropic Messages 非流式解析：
      * content[] 块 → text（正文）/ thinking（思维链）/ web_search_tool_result（来源）。
-     * 来源随正文附「—来源 —」清单（联网应答需带来源；§2.1 C1）。
+     * 来源随正文附「引用块」清单（M5.7 版式）：——参考来源—— + [n] 标题 + URL，逐条两行；
+     * URL 去重、标题缺省取域名；上限 [MAX_SOURCES] 条（墨水屏阅读友好）。
      */
     private fun parseAnthropic(body: String): RawResult {
         return try {
             val obj = JsonParser.parseString(body).asJsonObject
             val content = StringBuilder()
             val reasoning = StringBuilder()
-            val sources = StringBuilder()
-            var sourceCount = 0
+            /** 来源（标题 to URL；标题缺省已回退为域名） */
+            val sources = mutableListOf<Pair<String, String>>()
+            val seenUrls = mutableSetOf<String>()
             obj.getAsJsonArray("content")?.forEach { item ->
                 val c = item.asJsonObject
                 when (c.get("type")?.asString) {
@@ -442,18 +444,29 @@ class DeepSeekApi(
                         ?.takeIf { !it.isJsonNull }?.asString?.let(reasoning::append)
                     "web_search_tool_result" -> {
                         c.getAsJsonArray("content")?.forEach resultLoop@{ r ->
-                            if (sourceCount >= MAX_SOURCES || r.isJsonNull) return@resultLoop
+                            if (sources.size >= MAX_SOURCES || r.isJsonNull) return@resultLoop
                             val ro = r.asJsonObject
                             val url = ro.get("url")?.takeIf { !it.isJsonNull }?.asString ?: return@resultLoop
+                            if (!seenUrls.add(url)) return@resultLoop // M5.7：同 URL 去重
                             val title = ro.get("title")?.takeIf { !it.isJsonNull }?.asString
-                            sources.append("\n· ").append(title?.let { "$it " } ?: "").append(url)
-                            sourceCount++
+                                ?.trim()?.takeIf { it.isNotEmpty() } ?: domainOf(url)
+                            sources += title to url
                         }
                     }
                 }
             }
-            val text = if (sources.isEmpty()) content.toString()
-            else content.toString() + "\n\n—来源 —" + sources
+            val text = if (sources.isEmpty()) {
+                content.toString()
+            } else {
+                buildString {
+                    append(content)
+                    append("\n\n> ——参考来源——")
+                    sources.forEachIndexed { i, (title, url) ->
+                        append("\n> [").append(i + 1).append("] ").append(title)
+                        append("\n> ").append(url)
+                    }
+                }
+            }
             val usage = obj.get("usage")?.takeIf { !it.isJsonNull }?.asJsonObject
             val inputTokens = usage.intOrNull("input_tokens", "prompt_tokens")
             val hitTokens = usage.intOrNull("cache_read_input_tokens", "prompt_cache_hit_tokens")
@@ -586,3 +599,7 @@ private fun JsonObject?.intOrNull(vararg keys: String): Int? {
     }
     return null
 }
+
+/** 从 URL 提取域名（来源标题缺省回退；M5.7） */
+private fun domainOf(url: String): String =
+    url.substringAfter("://", url).substringBefore('/').ifEmpty { url }

@@ -77,7 +77,7 @@ internal object TexUnicode {
             val name = s.substring(j, k)
             i = k
             return when (name) {
-                "frac", "dfrac", "tfrac" -> {
+                "frac", "dfrac", "tfrac", "cfrac" -> {
                     val a = group()
                     val b = group()
                     if (simpleAtom(a) && simpleAtom(b)) "$a/$b" else "($a)/($b)"
@@ -100,6 +100,33 @@ internal object TexUnicode {
                 }
                 "text", "mathrm", "operatorname", "mathbf", "mathit", "mathcal", "mathbb", "mathsf", "mathtt" ->
                     group()
+                // 字体 / 样式 / 颜色 / 空白声明（M5.7）：降级为「保留内容、丢弃修饰」
+                "boldsymbol", "bm", "mathscr", "mathfrak", "mathnormal",
+                "mathop", "mathrel", "mathbin", "mathord", "mathpunct",
+                "mathopen", "mathclose" -> group()
+                "bf", "rm", "it", "sf", "tt", "cal", "frak" -> ""
+                "color" -> {
+                    group()
+                    ""
+                }
+                "textcolor" -> {
+                    group()
+                    group()
+                }
+                "hspace", "vspace", "kern", "mkern", "phantom", "hphantom", "vphantom" -> {
+                    group()
+                    ""
+                }
+                "hline", "cline" -> ""
+                "big", "Big", "bigg", "Bigg", "bigm",
+                "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr" -> ""
+                // 方框 / 标注 / 上下叠（M5.7）
+                "boxed", "underbrace", "overbrace" -> group()
+                "overset", "underset", "stackrel" -> {
+                    val a = group()
+                    val b = group()
+                    "$a $b"
+                }
                 "left", "right" -> delim()
                 "sum" -> "∑"
                 "prod" -> "∏"
@@ -114,11 +141,17 @@ internal object TexUnicode {
                     "C($a, $b)"
                 }
                 "overline", "bar" -> combine('\u0305', group())
-                "hat" -> combine('\u0302', group())
-                "vec" -> combine('\u20D7', group())
+                "hat", "widehat" -> combine('\u0302', group())
+                "vec", "overrightarrow" -> combine('\u20D7', group())
+                "overleftarrow" -> combine('\u20D0', group())
                 "dot" -> combine('\u0307', group())
                 "ddot" -> combine('\u0308', group())
-                "tilde" -> combine('\u0303', group())
+                "tilde", "widetilde" -> combine('\u0303', group())
+                "acute" -> combine('\u0301', group())
+                "grave" -> combine('\u0300', group())
+                "breve" -> combine('\u0306', group())
+                "check" -> combine('\u030C', group())
+                "mathring" -> combine('\u030A', group())
                 "begin" -> env()
                 "end" -> { group(); "" }
                 else -> TexParser.symbolCharOf(name) ?: ("\\" + name)

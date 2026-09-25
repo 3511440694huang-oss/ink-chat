@@ -27,10 +27,12 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ink.chat.ui.theme.Ink
 import com.ink.chat.ui.theme.InkType
+import com.ink.chat.ui.theme.LocalInkFontFamily
 import com.ink.chat.ui.theme.inkLh
 
 /**
@@ -195,23 +197,29 @@ fun InkNotice(
     }
 }
 
-/** 输入框（1.5dp 黑框、直角、最小 48dp / 最大 132dp，超出内滚） */
+/** 输入框（1.5dp 黑框、直角、最小 48dp / 最大 [maxHeight]（默认 132dp），超出内滚） */
 @Composable
 fun InkInputField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "输入消息…"
+    placeholder: String = "输入消息…",
+    maxHeight: Dp = 132.dp
 ) {
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier
-            .heightIn(min = 48.dp, max = 132.dp)
+            .heightIn(min = 48.dp, max = maxHeight)
             .border(Ink.StrongLine, Ink.Ink)
             .background(Ink.Paper)
             .padding(horizontal = 12.dp, vertical = 12.dp),
-        textStyle = TextStyle(fontSize = InkType.Body, color = Ink.Ink, lineHeight = inkLh(28f)),
+        textStyle = TextStyle(
+            fontSize = InkType.Body,
+            color = Ink.Ink,
+            lineHeight = inkLh(28f),
+            fontFamily = LocalInkFontFamily.current,
+        ),
         cursorBrush = SolidColor(Ink.Ink),
         decorationBox = { innerTextField ->
             Box {

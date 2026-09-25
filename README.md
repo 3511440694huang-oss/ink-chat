@@ -1,6 +1,6 @@
 # ink-chat（静墨）— DeepSeek 墨水屏客户端
 
-> 依据 [`docs/软件框架.md`](docs/软件框架.md) v2.0｜**当前：M5.6 完成**（用量统计：缓存命中率 / 花费估算 · LaTeX 渲染修复）
+> 依据 [`docs/软件框架.md`](docs/软件框架.md) v2.0｜**当前：M5.7 完成**（排版与 LaTeX 增强 · 备份恢复 · 提示词 · 自定义字体 · 来源版式）
 > 墨屏真机：MiDuoKanReaderPro / Android 8.1（SDK27）/ armeabi-v7a —— 构建 / 安装 / 运行链路已验证
 > 代码仓库：[`3511440694huang-oss/ink-chat`](https://github.com/3511440694huang-oss/ink-chat)（Releases 页提供 APK 下载）
 
@@ -66,6 +66,7 @@ app/src/main/java/com/ink/chat/
 - [x] M4 设置与账户（余额 / 模型列表 / 显示三档）—— ✅ 2026-09-12 装机冒烟
 - [ ] M5 增强（联网搜索 / 图片输入）
   - [x] M5.6 用量统计（缓存命中率 / 花费估算）· LaTeX 渲染修复 —— ✅ 2026-09-13 真机验证（v0.7.1 已发布）
+  - [x] M5.7 细节增强集 —— 排版与 LaTeX 增强 / 备份恢复 / 提示词 / 自定义字体 / 来源版式 —— ✅ 2026-09-25 装机冒烟（v0.8.0）
 - [ ] M6 打磨与发布
 
 ## 构建记录
@@ -154,6 +155,17 @@ app/src/main/java/com/ink/chat/
 | 装机验证 | 覆盖安装 0.7.1（versionCode 10）→ 启动无 FATAL → `uiautomator dump`：「联网 / 思考 / 图片 / 文件 / 短语」无挤压、用量行「↑933 ↓2.1k · ≈¥0.0092」正常；**旧库数据保留（迁移生效）** ✓；用户实机确认 LaTeX 渲染 ✓ |
 | 发布 | GitHub `3511440694huang-oss/ink-chat`（源码 70 文件）＋ [Release v0.7.1](https://github.com/3511440694huang-oss/ink-chat/releases/tag/v0.7.1)（APK 附件，sha256 `ea18a00e…61222`） |
 **本轮踩坑**：① 本机 `/storage`（fuse）会破坏 git 写 loose object（`git add` 报 "failed to insert into database"；`/root` 下正常）→ 仓库改用 `--separate-git-dir`（对象库置于 `/root`）规避；② 单测三处小坑：包名写错、Kotlin 字符串模板 `$` 转义、matrix 顶层 Group 断言修正。
+### 2026-09-25 · M5.7 细节增强集（装机冒烟 + v0.8.0）
+
+| 项 | 结果 |
+|---|---|
+| 范围 | ① **排版与 LaTeX**：H1/H2 下细线；符号表扩充约 60 项（implies / iff / mid / parallel / perp / lfloor-rfloor / sqcup-sqcap / bigoplus 等）；新增 `\boxed`（真实框线绘制）、`\overset / \underset / \stackrel`（叠标盒模型）、`\underbrace / \overbrace`（透传 + 尾标）；修复 `\left.` / `\right.`（不再画点）、`\limits` / `\nolimits`（吸收进大运算符，下标不再丢失）；颜色 / 空白 / 旧字体 / `\big` 系命令降级为透明（不再残留原文）。② **备份 / 恢复**：ZIP（DB 三件套 + 设置 + 字体），两阶段恢复（暂存 → 启动时在 Room 之前替换 → 自动重启），不含 API Key。③ **提示词**：系统提示词（system 消息注入）+ 模板库。④ **自定义字体**：ttf / otf / ttc 导入（文件头魔数校验，8MB 上限），全局应用（Typography + LocalInkFontFamily 双通道），删除回退系统。⑤ **联网来源**：引用块版式（——参考来源—— + [n] 标题 + URL 两行/条）、URL 去重、标题缺省回退域名。 |
+| 测试 | 单元测试 19/19（新增 `TexCompatTest` 12 项：常见语料零残留扫描 + 关键修复点结构断言 + 行内 Unicode 降级） |
+| 构建 | release 12.6MB（`app-release.apk`，versionCode 11 / versionName 0.8.0）；清 kapt 缓存后一次通过 |
+| 装机 | 覆盖安装 v0.8.0 → 启动无 FATAL、进程存活 ✓（深度 UI 验收待解锁复核）；APK 归档 `发布/ink-chat-v0.8.0-release.apk`，sha256 `9ab7ae19…18d3c3` |
+| 发布 | _待定_（本地已就绪；GitHub 发布待用户确认后执行） |
+
+**本轮踩坑**：① kapt / javac 的「非法 unicode 转义」陷阱——KDoc 里写 `\underset` 会生成 `\u` 序列致 stub 编译失败 → 改为双反斜杠；② Kotlin 块注释支持嵌套——KDoc 里写 `fonts/*` 会吞掉注释结尾（Unclosed comment）→ 改写为「fonts/ 目录下全部字体文件」；③ `pm install` 直读 `/storage` 源路径被 SELinux 拒（system_server 无 fuse 读权）→ 先 `cp /data/local/tmp` 再安装（沿用旧法）。
 ### 墨屏真机备忘（来自安装堆栈）
 
 - 设备：**MiDuoKanReaderPro** · Android 8.1（SDK27）· armeabi-v7a
