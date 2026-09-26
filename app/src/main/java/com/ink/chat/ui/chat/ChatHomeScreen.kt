@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -71,7 +72,7 @@ import org.koin.androidx.compose.koinViewModel
 
 /**
  * 对话页（M3：多会话 —— 观察共享槽位自动切换；思考链折叠 / 停止 / 重试 / 复制 / 删除 / 跳转，零动画）。
- * 交互：顶栏 菜单→会话列表、目录→消息跳转弹窗、设置；↑/↓ 迷你翻页键右侧边缘悬浮（无动画整屏翻页）；
+ * 交互：顶栏 菜单→会话列表、目录→消息跳转弹窗、＋→新对话（空闲会话复用）、设置；↑/↓ 迷你翻页键右侧边缘悬浮（无动画整屏翻页）；
  * 点击消息 → 展开操作条；输入区发送键生成中变「停止」；列表页「跳到…」→ 本页无动画定位目标消息。
  */
 @Composable
@@ -165,6 +166,8 @@ fun ChatHomeScreen(
                     if (messages.isNotEmpty()) showJump = true else vm.notify("还没有消息。")
                 },
                 Icons.Outlined.Settings to onOpenSettings,
+                // 新对话（空闲会话复用；与列表页 + 同口径）
+                Icons.Outlined.Add to { vm.newConversation() },
             )
         )
 

@@ -4,6 +4,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import com.ink.chat.data.transfer.TransferCodec
 import com.ink.chat.domain.model.ConversationRow
 import com.ink.chat.ui.components.InkConfirmDialog
+import com.ink.chat.ui.components.InkDialog
+import com.ink.chat.ui.components.InkDialogTextButton
 import com.ink.chat.ui.components.InkInputDialog
 import com.ink.chat.ui.components.InkInputField
 import com.ink.chat.ui.components.InkJumpDialog
@@ -49,9 +52,9 @@ import com.ink.chat.util.TimeFmt
 import org.koin.androidx.compose.koinViewModel
 
 /**
- * 会话列表页（M3，§3.4-③ 线框）：
- * 搜索框 + 置顶组 + 列表；每项标题/条数时间/摘要预览 + 常驻一行小号文字按钮
- * [置顶][跳到…][改名][总结][导出][删除]（直点直达，无长按、无滑动抽屉）。
+ * 会话列表页（M3，§3.4-③ 线框；精简版——操作行自条目行收起）：
+ * 搜索框 + 置顶组 + 列表；每项 = 标题/条数时间/摘要预览 + 行尾「操作」入口，
+ * [置顶][跳到…][改名][总结][导出][删除] 收进弹窗（直点直达，无长按、无滑动抽屉）。
  */
 @Composable
 fun SessionsScreen(
@@ -62,11 +65,11 @@ fun SessionsScreen(
     val query by vm.query.collectAsState()
     val activeQuery by vm.activeQuery.collectAsState()
     val notice by vm.notice.collectAsState()
-    val summarizing by vm.summarizing.collectAsState()
     val jumpMessages by vm.jumpMessages.collectAsState()
     val manage by vm.manageMode.collectAsState()
     val selected by vm.selected.collectAsState()
 
+    var actionsTarget by remember { mutableStateOf<ConversationRow?>(null) }
     var renameTarget by remember { mutableStateOf<ConversationRow?>(null) }
     var deleteTarget by remember { mutableStateOf<ConversationRow?>(null) }
     var pendingExport by remember { mutableStateOf<ConversationRow?>(null) }
@@ -167,19 +170,10 @@ fun SessionsScreen(
                             row = row,
                             manage = manage,
                             selected = row.id in selected,
-                            summarizing = summarizing == row.id,
                             onOpen = {
                                 if (manage) vm.toggleSelect(row.id) else vm.open(row.id) { onBack() }
                             },
-                            onPin = { vm.togglePin(row) },
-                            onJump = { vm.openJumpDialog(row.id) },
-                            onRename = { renameTarget = row },
-                            onSummarize = { vm.summarize(row.id) },
-                            onExport = {
-                                pendingExport = row
-                                exportLauncher.launch(TransferCodec.exportFileName(row.title))
-                            },
-                            onDelete = { deleteTarget = row },
+                            onMore = { actionsTarget = row },
                         )
                     }
                 }
@@ -188,19 +182,10 @@ fun SessionsScreen(
                         row = row,
                         manage = manage,
                         selected = row.id in selected,
-                        summarizing = summarizing == row.id,
                         onOpen = {
                             if (manage) vm.toggleSelect(row.id) else vm.open(row.id) { onBack() }
                         },
-                        onPin = { vm.togglePin(row) },
-                        onJump = { vm.openJumpDialog(row.id) },
-                        onRename = { renameTarget = row },
-                        onSummarize = { vm.summarize(row.id) },
-                        onExport = {
-                            pendingExport = row
-                            exportLauncher.launch(TransferCodec.exportFileName(row.title))
-                        },
-                        onDelete = { deleteTarget = row },
+                        onMore = { actionsTarget = row },
                     )
                 }
             }
@@ -235,6 +220,24 @@ fun SessionsScreen(
                 confirmBatchDelete = false
             },
             onDismiss = { confirmBatchDelete = false }
+        )
+    }
+
+    // —— 单会话操作面板（行尾「操作」入口；6 项操作由弹窗承载）——
+    actionsTarget?.let { row ->
+        ConversationActionsDialog(
+            row = row,
+            onPin = { vm.togglePin(row); actionsTarget = null },
+            onJump = { vm.openJumpDialog(row.id); actionsTarget = null },
+            onRename = { renameTarget = row; actionsTarget = null },
+            onSummarize = { vm.summarize(row.id); actionsTarget = null },
+            onExport = {
+                pendingExport = row
+                exportLauncher.launch(TransferCodec.exportFileName(row.title))
+                actionsTarget = null
+            },
+            onDelete = { deleteTarget = row; actionsTarget = null },
+            onDismiss = { actionsTarget = null },
         )
     }
 
@@ -298,81 +301,72 @@ private fun GroupHeader(text: String) {
     }
 }
 
-/** 单个会话项：标题行 + 摘要行（点击进入）+ 常驻操作按钮行；管理模式下点行 = 勾选（M5.5） */
+/** 单个会话项（精简版）：标题行 + 摘要行 + 行尾「操作」入口；管理模式下点行 = 勾选（M5.5） */
 @Composable
 private fun SessionItem(
     row: ConversationRow,
     manage: Boolean,
     selected: Boolean,
-    summarizing: Boolean,
     onOpen: () -> Unit,
-    onPin: () -> Unit,
-    onJump: () -> Unit,
-    onRename: () -> Unit,
-    onSummarize: () -> Unit,
-    onExport: () -> Unit,
-    onDelete: () -> Unit,
+    onMore: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .inkClickable(onOpen)
-                .padding(horizontal = Ink.PadPage, vertical = 10.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (manage) {
-                    SelectionMark(selected)
-                    Spacer(Modifier.width(10.dp))
-                }
-                if (row.pinned) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .inkClickable(onOpen)
+                    .padding(start = Ink.PadPage, end = Ink.PadTight, top = 10.dp, bottom = 10.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (manage) {
+                        SelectionMark(selected)
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    if (row.pinned) {
+                        Text(
+                            "★",
+                            fontSize = InkType.Alt,
+                            color = Ink.InkMid,
+                            modifier = Modifier.padding(end = 6.dp)
+                        )
+                    }
                     Text(
-                        "★",
-                        fontSize = InkType.Alt,
+                        text = row.title,
+                        modifier = Modifier.weight(1f),
+                        fontSize = InkType.Body,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Ink.Ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${row.messageCount}条 · ${TimeFmt.relDay(row.updatedAt)}",
+                        fontSize = InkType.Caption,
                         color = Ink.InkMid,
-                        modifier = Modifier.padding(end = 6.dp)
+                        maxLines = 1
                     )
                 }
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = row.title,
-                    modifier = Modifier.weight(1f),
-                    fontSize = InkType.Body,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Ink.Ink,
+                    text = row.preview.ifEmpty { "（空对话）" },
+                    fontSize = InkType.Alt,
+                    color = Ink.InkMid,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = "${row.messageCount}条 · ${TimeFmt.relDay(row.updatedAt)}",
-                    fontSize = InkType.Caption,
-                    color = Ink.InkMid,
-                    maxLines = 1
-                )
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = row.preview.ifEmpty { "（空对话）" },
-                fontSize = InkType.Alt,
-                color = Ink.InkMid,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        // 常驻操作行（等宽 6 键，触区 48dp；直点直达；管理模式下隐藏）
-        if (!manage) {
-            Row(Modifier.fillMaxWidth()) {
-                SessionAction(if (row.pinned) "已置顶" else "置顶", Modifier.weight(1f), onClick = onPin)
-                SessionAction("跳到…", Modifier.weight(1f), onClick = onJump)
-                SessionAction("改名", Modifier.weight(1f), onClick = onRename)
-                SessionAction(
-                    label = if (summarizing) "总结中" else "总结",
-                    modifier = Modifier.weight(1f),
-                    enabled = !summarizing,
-                    onClick = onSummarize
-                )
-                SessionAction("导出", Modifier.weight(1f), onClick = onExport)
-                SessionAction("删除", Modifier.weight(1f), onClick = onDelete)
+            // 行尾「操作」入口（48dp 触区；管理模式下隐藏——点行即勾选）
+            if (!manage) {
+                Box(
+                    Modifier
+                        .padding(end = Ink.PadTight)
+                        .size(Ink.Touch)
+                        .inkClickable(onMore),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("操作", fontSize = InkType.Caption, color = Ink.Ink, maxLines = 1)
+                }
             }
         }
 
@@ -432,5 +426,62 @@ private fun SessionAction(
             color = if (enabled) Ink.Ink else Ink.InkMid,
             maxLines = 1
         )
+    }
+}
+
+/** 单会话操作面板：标题 + 6 项操作；点任一项执行并关闭（静态列表、直点直达） */
+@Composable
+private fun ConversationActionsDialog(
+    row: ConversationRow,
+    onPin: () -> Unit,
+    onJump: () -> Unit,
+    onRename: () -> Unit,
+    onSummarize: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    InkDialog(onDismiss = onDismiss) {
+        Text(
+            text = row.title,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
+            fontSize = InkType.Title,
+            fontWeight = FontWeight.SemiBold,
+            color = Ink.Ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = "${row.messageCount}条消息",
+            modifier = Modifier.padding(horizontal = 16.dp),
+            fontSize = InkType.Caption,
+            color = Ink.InkMid
+        )
+        Spacer(Modifier.height(4.dp))
+        ActionPanelItem(if (row.pinned) "取消置顶" else "置顶", onPin)
+        ActionPanelItem("跳到…", onJump)
+        ActionPanelItem("改名", onRename)
+        ActionPanelItem("总结", onSummarize)
+        ActionPanelItem("导出", onExport)
+        ActionPanelItem("删除", onDelete)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            InkDialogTextButton("取消", onDismiss)
+        }
+    }
+}
+
+/** 操作面板行（全宽、≥48dp 触区、左对齐正文；无涟漪） */
+@Composable
+private fun ActionPanelItem(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .inkClickable(onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Text(label, fontSize = InkType.Body, color = Ink.Ink)
     }
 }

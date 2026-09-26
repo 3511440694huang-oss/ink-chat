@@ -118,6 +118,18 @@ class ChatViewModel(
         holder.pendingJump.value = null
     }
 
+    /** 顶栏「新对话」：空闲会话复用，否则新建（与列表页 + 同口径）；已在空会话时给出反馈 */
+    fun newConversation() {
+        viewModelScope.launch {
+            val target = chatRepo.findBlankOrCreate()
+            if (holder.current.value == target) {
+                _notice.value = Notice("已在新对话中。")
+            } else {
+                holder.current.value = target
+            }
+        }
+    }
+
     /** 发送一条消息（M5：可选携带已上传图片；M5.5：可选携带文本文件；空文本 + 附件允许发送） */
     fun send(text: String) {
         val t = text.trim()
